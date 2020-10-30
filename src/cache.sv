@@ -6,7 +6,8 @@ module cache #(
 	parameter NUM_SETS=32, //8KB / 128 = 64 / 2 = 32,
 	parameter OFFSET_BITS=7, 
 	parameter INDEX_BITS=5, 
-	parameter TAG_BITS=20
+	parameter TAG_BITS=20,
+	parameter N_POW=4
 	)(
 	//core to cache interface
 	input logic clk, rst, 
@@ -44,13 +45,22 @@ module cache #(
 	logic line_dirty [N_WAYS];
 	logic line_empty [N_WAYS];
 	logic [15:0] line_age [N_WAYS];
+	
+	//Outputs from hit check module
+	logic cache_hit, cache_miss;
+	logic [N_POW-1:0] hit_way; 
+	
+	//Outputs from replacement scheme module
+	logic [N_POW-1:0] evict_way;
 
 	//Instantiate Address Translator 
 	address_translator a0(.*);
 	
-	function logic [3:0] compare_tags(input logic [TAG_BITS-1:0] tag_in, input logic [TAG_BITS-1:0] comp_tags [N_WAYS]);
-		
-	endfunction 
+	//Instantiate hit check module
+	hit_check ht0(.tag_in(tag_out), .line_tags(line_tags), .line_empty(line_empty), .hit(cache_hit), .miss(cache_miss), .hit_way(hit_way));
+	
+	//Instantiate replacement scheme module
+	replacement_scheme rs0(.*); 
 
 	always_comb begin
 		line_tags = cache_tags[index_out];
@@ -86,8 +96,15 @@ module cache #(
 					cache_rdy <= 1; 
 				end
 				idle: begin
-					if (ren | wen) begin
-						
+					if ((ren | wen) & cache_rdy) begin
+						if (cache_miss) begin
+							cache_tags[index_out][evict_way] = tag_out;
+							cache_age[index_out][evict_way] = 0;
+							cache_empty[index_out][evict_way] = 0; 
+							if (wen) cache_dirty[index_out][evict_way] = 1; 
+						end else if (cache_hit) begin
+							cache_age[index_out][hit_way] = 0; 
+						end
 					end
 //					if (ren) begin
 //						read_flag <= 1;
