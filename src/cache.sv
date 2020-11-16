@@ -78,6 +78,13 @@ module cache #(
 	logic [SRAM_ADDR_WIDTH-1:0] block_addr;
 	logic [OFFSET_BITS-1:0] block_offset;
 
+        // buffer parameters
+        logic buff_en, buff_wr_en, buff_rd_en, buff_rst, EMPTY, FULL; //added by Nishith
+        logic [DATA_WIDTH-1:0] buff_din;
+
+        // buffer
+         buffer  b0 ( clk, buff_din, buff_rd_en, buff_wr_en, buff_en, mem_din, buff_rst, EMPTY, FULL ); //added by Nishith
+
 	//Instantiate Address Translator 
 	address_translator a0(.*);
 	
@@ -161,9 +168,14 @@ module cache #(
 							//TODO: Transition to next state
 							//Need to writeback dirty block. Load it into the block buffer
 							if (cache_dirty[index_out][evict_way]) begin
+                                                        
+                                                             state <= sram_to_buffer;   //added by Nishith
+                                                        end 
+                                                        
 								
 							//Block isn't dirty, we can replace it now
-							end else begin
+							
+                                                        else begin
 								mem_addr <= {tag_out, index_out, 7'h00};
 								mem_ren <= 1; 
 								state <= mem_to_buffer;
@@ -280,11 +292,19 @@ module cache #(
 						cell_wen <= 4'b0000;
 					end 
 				end
-				sram_to_buffer: begin
-				
+				sram_to_buffer: begin  // added by Nishith
+				  buff_en <= 1;
+                                  buff_wr_en <= 1;
+                                  buff_rd_en <= 0;
+                                  buff_din <= ; // need to correct, dirty block here
+                                  state <= buffer_to_mem;
 				end
-				buffer_to_mem: begin
-				
+				buffer_to_mem: begin //added by Nishith
+				    buff_en <= 1;
+                                    buff_wr_en <= 0;
+                                    buff_rd_en <= 1;
+                                    mem_din <= buff_din; // maybe correction here too
+                                    state <= idle;
 				end
 				mem_to_buffer: begin
 				
