@@ -303,7 +303,7 @@ module cache #(
 				    buff_en <= 1;
                                     buff_wr_en <= 0;
                                     buff_rd_en <= 1;
-                                    mem_din <= buff_dout; // maybe correction here too
+                                    mem_din <= buff_dout; // maybe correction here too, also need address
                                     state <= idle;
 				end
 				mem_to_buffer: begin
