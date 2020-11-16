@@ -12,6 +12,8 @@ logic [9:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
 logic cell_0_sense_en, cell_1_sense_en, cell_2_sense_en, cell_3_sense_en;
 logic cell_0_wen, cell_1_wen, cell_2_wen, cell_3_wen;
 
+enum {setup, idle, cache_rw, sram_to_buffer, buffer_to_mem, mem_to_buffer, buffer_to_sram} state;
+
 always #5 clk=~clk; 
 
 cache dut(.*); 
@@ -55,15 +57,21 @@ initial begin
 	storecntrl = 0; 
 	#10
 	rst = 0; 
-	read_cache(32'hace12000);
-	write_cache(32'hdeadbeef, 32'hace12000); 
-	read_cache(32'hace12000);
-	write_cache(32'hdeadbeef, 32'hace12003);
-	read_cache(32'hace12000);
-	read_cache(32'hace12001);
-	read_cache(32'hace12002);
-	read_cache(32'hace12003);
 	read_cache(32'hace12004);
+	
+	#10
+	for (int i = 0; i < 32; i++) dut.block_buf[i] = {8'(i), 8'(i), 8'(i), 8'(i)}; 
+	dut.block_counter = 0;
+	dut.state = dut.buffer_to_sram;
+
+
+//	write_cache(32'hdeadbeef, 32'hace12000); 
+//	read_cache(32'hace12000);
+//	read_cache(32'hbeef2004);
+//	write_cache(32'habcd1234, 32'hbeef2004);
+//	read_cache(32'hbeef2008);
+//	read_cache(32'hbeef2004);
+//	read_cache(32'hace12000);
 //	#10 
 //	ren = 1;
 //	addr = 32'hace12000; 

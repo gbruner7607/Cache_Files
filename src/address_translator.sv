@@ -4,7 +4,7 @@ module address_translator #(
 	parameter BLOCK_SIZE=128,
 	parameter NUM_SETS=32, 
 	parameter OFFSET_BITS=7,
-	parameter INDEX_BITS=5,
+	parameter INDEX_BITS=4,
 	parameter TAG_BITS=21
 	)(
 	input logic [ADDR_WIDTH-1:0] addr, 

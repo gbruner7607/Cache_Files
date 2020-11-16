@@ -3,7 +3,7 @@ module replacement_scheme #(
 	parameter N_POW=4
 )(
 	input logic line_empty [N_WAYS],
-	input logic [15:0] line_age [N_WAYS], 
+	input logic [31:0] line_age [N_WAYS], 
 	output logic [N_POW-1:0] evict_way
 );
 
@@ -17,7 +17,7 @@ function logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
 	decode = retval;
 endfunction
 
-function logic [N_POW-1:0] replace(input logic line_empty [N_WAYS], input logic [15:0] line_age [N_WAYS]);
+function logic [N_POW-1:0] replace(input logic line_empty [N_WAYS], input logic [31:0] line_age [N_WAYS]);
 	automatic int retval = 0; 
 	automatic int ret_age = line_age[0];
 	for (int i = 0; i < N_WAYS; i++) begin

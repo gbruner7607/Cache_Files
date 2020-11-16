@@ -36,7 +36,7 @@ module cache #(
 	);
 
 	//State Machine
-	enum {setup, idle, cache_rw, cache_replace} state;
+	enum {setup, idle, cache_rw, sram_to_buffer, buffer_to_mem, mem_to_buffer, buffer_to_sram} state;
 	logic read_flag, write_flag;
 
 	//Cache block data and information
@@ -44,7 +44,7 @@ module cache #(
 	logic [DATA_WIDTH-1:0] cache_data [NUM_SETS][N_WAYS]; 
 	logic cache_dirty [NUM_SETS][N_WAYS];
 	logic cache_empty [NUM_SETS][N_WAYS];
-	logic [15:0] cache_age [NUM_SETS][N_WAYS];
+	logic [31:0] cache_age [NUM_SETS][N_WAYS];
 
 	//Interface w/ address translator
 	logic [TAG_BITS-1:0] tag_out;
@@ -55,7 +55,7 @@ module cache #(
 	logic [TAG_BITS-1:0] line_tags [N_WAYS];
 	logic line_dirty [N_WAYS];
 	logic line_empty [N_WAYS];
-	logic [15:0] line_age [N_WAYS];
+	logic [31:0] line_age [N_WAYS];
 	
 	//Outputs from hit check module
 	logic cache_hit, cache_miss;
@@ -71,6 +71,12 @@ module cache #(
 	logic [4:0] sram_loadcntrl;
 	logic [2:0] sram_storecntrl;
 	logic [31:0] sram_dout; 
+	
+	//Block buffer for exchanging blocks with higher level memory
+	logic [31:0] block_buf [32]; 
+	logic [15:0] block_counter; 
+	logic [SRAM_ADDR_WIDTH-1:0] block_addr;
+	logic [OFFSET_BITS-1:0] block_offset;
 
 	//Instantiate Address Translator 
 	address_translator a0(.*);
@@ -122,6 +128,7 @@ module cache #(
 			mem_din <= 32'h0;
 			mem_addr <= 32'h0;
 			sram_latency_counter <= 0;
+			block_counter <= 0;
 		end else begin
 			case (state) 
 				setup: begin
@@ -133,6 +140,9 @@ module cache #(
 							cache_empty[i][j] = 1;
 							cache_age[i][j] = 0; 
 						end
+					end
+					for (int i = 0; i < 32; i++) begin
+						block_buf[i] = 0;
 					end
 					state <= idle;
 					cache_rdy <= 1; 
@@ -149,6 +159,23 @@ module cache #(
 							if (wen) cache_dirty[index_out][evict_way] = 1; 
 							cache_rdy <= 1;
 							//TODO: Transition to next state
+							//Need to writeback dirty block. Load it into the block buffer
+							if (cache_dirty[index_out][evict_way]) begin
+								
+							//Block isn't dirty, we can replace it now
+							end else begin
+								mem_addr <= {tag_out, index_out, 7'h00};
+								mem_ren <= 1; 
+								state <= mem_to_buffer;
+								block_addr <= {evict_way[0], index_out, 5'b00000};
+								block_offset = offset_out[6:2]; 
+								sram_loadcntrl <= loadcntrl;
+								sram_storecntrl <= storecntrl;
+								sram_addr_lsb = addr[1:0];
+								read_flag <= ren;
+								write_flag <= wen;
+								cache_rdy <= 0;
+							end
 						//Cache Hit
 						end else if (cache_hit) begin
 							cache_age[index_out][hit_way] = 0; 
@@ -251,12 +278,93 @@ module cache #(
 						sram_latency_counter <= sram_latency_counter + 1;
 						cell_sense_en <= 4'b0000;
 						cell_wen <= 4'b0000;
-//						cell_0_sense_en <= 1'b0;
-//						cell_1_sense_en <= 1'b0;
-//						cell_2_sense_en <= 1'b0;
-//						cell_3_sense_en <= 1'b0;
-//						cell_0_wen <= 1'b0; cell_1_wen <= 1'b0; cell_2_wen <= 1'b0; cell_3_wen <= 1'b0;
 					end 
+				end
+				sram_to_buffer: begin
+				
+				end
+				buffer_to_mem: begin
+				
+				end
+				mem_to_buffer: begin
+				
+				end
+				buffer_to_sram: begin
+						if (sram_latency_counter >= SRAM_LATENCY) begin
+							if (block_counter >= 31) begin
+								block_counter <= 0;
+								sram_latency_counter <= 0;
+								if (read_flag) begin
+									case (sram_loadcntrl) 
+										5'b00001: begin
+											case(sram_addr_lsb)
+												2'b00: dout <= {{24{block_buf[block_offset][7]}}, block_buf[block_offset][7:0]};
+												2'b01: dout <= {{24{block_buf[block_offset][15]}}, block_buf[block_offset][15:8]};
+												2'b10: dout <= {{24{block_buf[block_offset][23]}}, block_buf[block_offset][23:16]};
+												2'b11: dout <= {{24{block_buf[block_offset][31]}}, block_buf[block_offset][31:24]};
+											endcase
+										end
+										5'b00010: begin
+											case(sram_addr_lsb)
+												2'b00: dout <= {{16{block_buf[block_offset][15]}}, block_buf[block_offset][15:0]};
+												2'b01: dout <= {{16{block_buf[block_offset][23]}}, block_buf[block_offset][23:8]};
+												2'b10: dout <= {{16{block_buf[block_offset][31]}}, block_buf[block_offset][31:16]};
+												2'b11: dout <= {{16{block_buf[block_offset + 1][7]}}, block_buf[block_offset + 1][7:0], block_buf[block_offset][31:24]};
+											endcase
+										end 
+										5'b00100: begin
+											case(sram_addr_lsb)
+											2'b00: dout <= block_buf[block_offset];
+											2'b01: dout <= {block_buf[block_offset+1][7:0], block_buf[block_offset][31:8]};
+											2'b10: dout <= {block_buf[block_offset+1][15:0], block_buf[block_offset][31:16]};
+											2'b11: dout <= {block_buf[block_offset+1][23:0], block_buf[block_offset][31:24]};
+											endcase
+										end 
+										5'b01000: begin
+											case(sram_addr_lsb)
+												2'b00: dout <= {{24{1'b0}}, block_buf[block_offset][7:0]};
+												2'b01: dout <= {{24{1'b0}}, block_buf[block_offset][15:8]};
+												2'b10: dout <= {{24{1'b0}}, block_buf[block_offset][23:16]};
+												2'b11: dout <= {{24{1'b0}}, block_buf[block_offset][31:24]};
+											endcase
+										end 
+										5'b10000: begin
+											case(sram_addr_lsb)
+												2'b00: dout <= {{16{1'b0}}, block_buf[block_offset][15:0]};
+												2'b01: dout <= {{16{1'b0}}, block_buf[block_offset][23:8]};
+												2'b10: dout <= {{16{1'b0}}, block_buf[block_offset][31:16]};
+												2'b11: dout <= {{16{1'b0}}, block_buf[block_offset + 1][7:0], block_buf[block_offset][31:24]};
+											endcase
+										end 
+										default: begin
+											dout <= 0;
+										end
+									endcase
+								end else if (write_flag) begin
+								
+								end
+								read_flag <= 0;
+								write_flag <= 0;
+								state <= idle;
+								cache_rdy <= 1;
+							end else begin
+								sram_latency_counter <= 0;
+								cell_0_din <= block_buf[block_counter + 1][7:0]; 
+								cell_1_din <= block_buf[block_counter + 1][15:8]; 
+								cell_2_din <= block_buf[block_counter + 1][23:16]; 
+								cell_3_din <= block_buf[block_counter + 1][32:24]; 
+								cell_0_addr <= block_addr + block_counter + 1;
+								cell_1_addr <= block_addr + block_counter + 1;
+								cell_2_addr <= block_addr + block_counter + 1;
+								cell_3_addr <= block_addr + block_counter + 1;
+								cell_wen <= 4'b1111;
+								block_counter <= block_counter + 1;
+								
+							end
+						end else begin
+							sram_latency_counter <= sram_latency_counter + 1; 
+							cell_wen <= 4'b0000;
+						end
 				end
 				default: begin
 					state <= idle;
