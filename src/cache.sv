@@ -80,10 +80,10 @@ module cache #(
 
         // buffer parameters
         logic buff_en, buff_wr_en, buff_rd_en, buff_rst, EMPTY, FULL; //added by Nishith
-        logic [DATA_WIDTH-1:0] buff_din;
+	logic [DATA_WIDTH-1:0] buff_din, buf_dout;
 
         // buffer
-         buffer  b0 ( clk, buff_din, buff_rd_en, buff_wr_en, buff_en, mem_din, buff_rst, EMPTY, FULL ); //added by Nishith
+	buffer  b0 ( clk, buff_din, buff_rd_en, buff_wr_en, buff_en, buff_dout, buff_rst, EMPTY, FULL ); //added by Nishith
 
 	//Instantiate Address Translator 
 	address_translator a0(.*);
@@ -303,7 +303,7 @@ module cache #(
 				    buff_en <= 1;
                                     buff_wr_en <= 0;
                                     buff_rd_en <= 1;
-                                    mem_din <= buff_din; // maybe correction here too
+                                    mem_din <= buff_dout; // maybe correction here too
                                     state <= idle;
 				end
 				mem_to_buffer: begin
