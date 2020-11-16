@@ -363,6 +363,7 @@ module cache #(
 //                                    buff_rd_en <= 1;
 //                                    mem_din <= buff_dout; // maybe correction here too
 //                                    state <= idle;
+
 				end
 				mem_to_buffer: begin
 				    if (block_counter >= 31) begin
