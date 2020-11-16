@@ -77,10 +77,11 @@ module cache #(
 	logic [15:0] block_counter; 
 	logic [SRAM_ADDR_WIDTH-1:0] block_addr;
 	logic [OFFSET_BITS-1:0] block_offset;
+	logic [31:0] mem_addr_tmp;
 
         // buffer parameters
         logic buff_en, buff_wr_en, buff_rd_en, buff_rst, EMPTY, FULL; //added by Nishith
-	logic [DATA_WIDTH-1:0] buff_din, buf_dout;
+	logic [DATA_WIDTH-1:0] buff_din, buff_dout;
 
         // buffer
 	buffer  b0 ( clk, buff_din, buff_rd_en, buff_wr_en, buff_en, buff_dout, buff_rst, EMPTY, FULL ); //added by Nishith
@@ -135,7 +136,13 @@ module cache #(
 			mem_din <= 32'h0;
 			mem_addr <= 32'h0;
 			sram_latency_counter <= 0;
+			cell_sense_en <= 4'b0000;
+			cell_wen <= 4'b0000;
 			block_counter <= 0;
+			buff_din <= 0;
+			buff_rd_en <= 0;
+			buff_wr_en <= 0;
+			buff_en <= 0;
 		end else begin
 			case (state) 
 				setup: begin
@@ -160,23 +167,28 @@ module cache #(
 						cache_rdy <= 0;
 						//Cache Miss
 						if (cache_miss) begin
-							cache_tags[index_out][evict_way] = tag_out;
-							cache_age[index_out][evict_way] = 0;
-							cache_empty[index_out][evict_way] = 0; 
-							if (wen) cache_dirty[index_out][evict_way] = 1; 
-							cache_rdy <= 1;
+							
+//							cache_rdy <= 1;
 							//TODO: Transition to next state
 							//Need to writeback dirty block. Load it into the block buffer
 							if (cache_dirty[index_out][evict_way]) begin
-                                                        
-                                                             state <= sram_to_buffer;   //added by Nishith
-                                                        end 
-                                                        
-								
+                                mem_addr <= {cache_tags[index_out][evict_way], index_out, 7'h00};
+                                mem_addr_tmp <= {tag_out, index_out, 7'h00};
+                                block_addr <= {evict_way[0], index_out, 5'b00000}; 
+                                cell_0_addr <= {evict_way[0], index_out, 5'b00000}; 
+                                cell_1_addr <= {evict_way[0], index_out, 5'b00000};
+                                cell_2_addr <= {evict_way[0], index_out, 5'b00000}; 
+                                cell_3_addr <= {evict_way[0], index_out, 5'b00000};
+                                cell_sense_en = 4'b1111;
+                                sram_latency_counter <= 0;
+                                state <= sram_to_buffer; 
+                                block_counter <= 0;
+                                buff_en <= 1;  //added by Nishith
+                            end 
 							//Block isn't dirty, we can replace it now
-							
-                                                        else begin
+							else begin
 								mem_addr <= {tag_out, index_out, 7'h00};
+								mem_addr_tmp <= {tag_out, index_out, 7'h00};
 								mem_ren <= 1; 
 								state <= mem_to_buffer;
 								block_addr <= {evict_way[0], index_out, 5'b00000};
@@ -188,6 +200,10 @@ module cache #(
 								write_flag <= wen;
 								cache_rdy <= 0;
 							end
+							cache_tags[index_out][evict_way] = tag_out;
+							cache_age[index_out][evict_way] = 0;
+							cache_empty[index_out][evict_way] = 0; 
+							if (wen) cache_dirty[index_out][evict_way] = 1; 
 						//Cache Hit
 						end else if (cache_hit) begin
 							cache_age[index_out][hit_way] = 0; 
@@ -293,21 +309,95 @@ module cache #(
 					end 
 				end
 				sram_to_buffer: begin  // added by Nishith
-				  buff_en <= 1;
-                                  buff_wr_en <= 1;
-                                  buff_rd_en <= 0;
-                                  buff_din <= ; // need to correct, dirty block here
-                                  state <= buffer_to_mem;
+				    if (FULL | block_counter >= 32) begin
+				        block_counter <= 0;
+				        buff_wr_en <= 0;
+				        buff_rd_en <= 1;
+				        state <= buffer_to_mem; 
+				        cell_sense_en <= 4'b0000;
+				    end else begin
+				        if (sram_latency_counter >= SRAM_LATENCY) begin
+				            buff_wr_en <= 1;
+				            buff_din <= {cell_3_dout, cell_2_dout, cell_1_dout, cell_0_dout}; 
+				            sram_latency_counter <= 0; 
+				            cell_0_addr <= cell_0_addr + 1; 
+				            cell_1_addr <= cell_1_addr + 1; 
+				            cell_2_addr <= cell_2_addr + 1; 
+				            cell_3_addr <= cell_3_addr + 1; 
+				            cell_sense_en <= 4'b1111;
+				            block_counter <= block_counter + 1;
+				        end else begin
+				            sram_latency_counter <= sram_latency_counter + 1; 
+				            cell_sense_en <= 4'b0000;
+				            buff_wr_en <= 0;
+				        end
+				    end
+//				  buff_en <= 1;
+//                                  buff_wr_en <= 1;
+//                                  buff_rd_en <= 0;
+////                                  buff_din <= ; // need to correct, dirty block here
+//                                  state <= buffer_to_mem;
 				end
 				buffer_to_mem: begin //added by Nishith
-				    buff_en <= 1;
-                                    buff_wr_en <= 0;
-                                    buff_rd_en <= 1;
-                                    mem_din <= buff_dout; // maybe correction here too
-                                    state <= idle;
+				    if (FULL) begin
+				       buff_rd_en <= 1;
+				       mem_din <= buff_dout;
+				       mem_wen <= 0; 
+//				       block_counter <= block_counter + 1;
+				    end else if ( block_counter >= 32) begin
+				        buff_rd_en <= 0;
+				        mem_wen <= 0; 
+				        mem_addr <= mem_addr_tmp;
+				        mem_ren <= 1;
+				        state <= mem_to_buffer;
+				        block_counter <= 0;
+				    end else begin
+//				        mem_addr <= mem_addr + 1;
+				        mem_din <= buff_dout; 
+				        mem_wen <= 1;
+				        if (mem_wen) mem_addr <= mem_addr + 1;
+				        block_counter <= block_counter + 1;
+				    end
+//				    buff_en <= 1;
+//                                    buff_wr_en <= 0;
+//                                    buff_rd_en <= 1;
+//                                    mem_din <= buff_dout; // maybe correction here too
+//                                    state <= idle;
 				end
 				mem_to_buffer: begin
-				
+				    if (block_counter >= 31) begin
+				        mem_ren <= 0; 
+				        block_counter <= 0; 
+				        sram_latency_counter <= 0;
+				        cell_0_din <= block_buf[0][7:0]; 
+						cell_1_din <= block_buf[0][15:8]; 
+						cell_2_din <= block_buf[0][23:16]; 
+						cell_3_din <= block_buf[0][32:24]; 
+						cell_0_addr <= block_addr;
+						cell_1_addr <= block_addr;
+						cell_2_addr <= block_addr;
+						cell_3_addr <= block_addr;
+						cell_wen <= 4'b1111;
+						state <= buffer_to_sram;
+				    end else begin
+				        block_buf[block_counter] <= mem_dout;
+				        block_counter <= block_counter + 1;
+				        mem_addr <= mem_addr + 1;
+				    end
+//				    if (EMPTY) begin 
+//				        buff_wr_en <= 1;
+//				        buff_din <= mem_dout; 
+//				        mem_addr <= mem_addr + 1;
+//				    end else if (block_counter >= 32) begin
+//				        block_counter <= 0;
+//				        buff_wr_en <= 0;
+//				        mem_ren <= 0;
+				        
+//				        state <= buffer_to_sram;
+//				    end else begin
+//				        buff_din <= mem_dout;
+//				        mem_addr <= mem_addr + 1;
+//				    end
 				end
 				buffer_to_sram: begin
 						if (sram_latency_counter >= SRAM_LATENCY) begin

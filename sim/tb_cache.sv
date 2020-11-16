@@ -12,8 +12,6 @@ logic [9:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
 logic cell_0_sense_en, cell_1_sense_en, cell_2_sense_en, cell_3_sense_en;
 logic cell_0_wen, cell_1_wen, cell_2_wen, cell_3_wen;
 
-enum {setup, idle, cache_rw, sram_to_buffer, buffer_to_mem, mem_to_buffer, buffer_to_sram} state;
-
 always #5 clk=~clk; 
 
 cache dut(.*); 
@@ -22,6 +20,8 @@ sram_behav sram_cell_0(clk, cell_0_din, cell_0_sense_en, cell_0_wen, cell_0_addr
 sram_behav sram_cell_1(clk, cell_1_din, cell_1_sense_en, cell_1_wen, cell_1_addr, cell_1_dout);
 sram_behav sram_cell_2(clk, cell_2_din, cell_2_sense_en, cell_2_wen, cell_2_addr, cell_2_dout);
 sram_behav sram_cell_3(clk, cell_3_din, cell_3_sense_en, cell_3_wen, cell_3_addr, cell_3_dout);
+
+mem_behav main_mem(clk, mem_ren, mem_wen, mem_din, mem_addr, mem_dout);
 
 task write_cache(input logic [31:0] d, a);
 //	@(posedge cache_rdy); 
@@ -57,12 +57,20 @@ initial begin
 	storecntrl = 0; 
 	#10
 	rst = 0; 
-	read_cache(32'hace12004);
-	
 	#10
-	for (int i = 0; i < 32; i++) dut.block_buf[i] = {8'(i), 8'(i), 8'(i), 8'(i)}; 
-	dut.block_counter = 0;
-	dut.state = dut.buffer_to_sram;
+	dut.cache_empty[0][0] = 0;
+	dut.cache_empty[0][1] = 0;
+	dut.cache_dirty[0][0] = 1; 
+	dut.cache_age[0][0] = 5;
+	#10;
+	
+	write_cache(32'hdeadbeef, 32'hace12000);
+//	read_cache(32'hace12004);
+	
+//	#10
+//	for (int i = 0; i < 32; i++) dut.block_buf[i] = {8'(i), 8'(i), 8'(i), 8'(i)}; 
+//	dut.block_counter = 0;
+//	dut.state = dut.buffer_to_sram;
 
 
 //	write_cache(32'hdeadbeef, 32'hace12000); 

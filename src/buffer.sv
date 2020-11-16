@@ -37,17 +37,17 @@ input   [31:0]    dataIn;
 
 output reg [31:0] dataOut; // internal registers 
 
-reg [2:0]  Count = 0; 
+reg [5:0]  Count = 0; 
 
-reg [31:0] FIFO [0:7]; 
+reg [31:0] FIFO [32]; 
 
-reg [2:0]  readCounter = 0, 
+reg [5:0]  readCounter = 0, 
 
            writeCounter = 0; 
 
 assign EMPTY = (Count==0)? 1'b1:1'b0; 
 
-assign FULL = (Count==8)? 1'b1:1'b0; 
+assign FULL = (Count==32)? 1'b1:1'b0; 
 
 //integer i;
 
@@ -64,22 +64,22 @@ begin
    readCounter = 0; 
 
    writeCounter = 0; 
-   
+   Count <= 0;
+   dataOut <= 0;
    //for (i=0; i<8; i++) begin
       //FIFO [i] = 0;
   // end
 
   end 
 
-  else if (RD ==1'b1 && Count!=0) begin 
+  else if (RD ==1'b1 && ~EMPTY) begin 
 
-   dataOut  = FIFO[readCounter]; 
+   dataOut <= FIFO[readCounter]; 
 
    readCounter = readCounter+1; 
-
   end 
 
-  else if (WR==1'b1 && Count<8) begin
+  else if (WR==1'b1 && ~FULL) begin
    FIFO[writeCounter]  = dataIn; 
 
    writeCounter  = writeCounter+1; 
@@ -90,11 +90,11 @@ begin
 
  end 
 
- if (writeCounter==8) 
+ if (writeCounter>32) 
 
   writeCounter=0; 
 
- else if (readCounter==8) 
+ else if (readCounter>32) 
 
   readCounter=0; 
 
@@ -110,7 +110,7 @@ begin
 
   Count=writeCounter-readCounter; 
 
- else;
+ else Count = 0;
 
 end 
 

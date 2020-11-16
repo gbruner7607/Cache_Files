@@ -19,7 +19,7 @@ module sram_behav #(
 	
 	initial begin
 		for (int i = 0; i < 1024; i++)
-			data[i] = 0;
+			data[i] = 8'(i);
 	end
 
 	always_ff @(posedge clk) begin

@@ -26,8 +26,9 @@ function logic [N_POW-1:0] replace(input logic line_empty [N_WAYS], input logic 
 			ret_age = line_age[i];
 			retval = i;
 		end
-		replace = i; 
+//		replace = i; 
 	end
+	replace = retval;
 endfunction
 
 always_comb begin

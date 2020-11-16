@@ -13,9 +13,9 @@ end
 
 always_ff @(posedge clk) begin
 	if (wen) begin
-		data[addr] <= din;
+		data[16'(addr)] <= din;
 	end else if (ren) begin
-		dout <= data[addr];
+		dout <= data[16'(addr)];
 	end
 end
 
