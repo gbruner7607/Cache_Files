@@ -1,6 +1,6 @@
 module hit_check #(
 	parameter N_WAYS=2,
-	parameter TAG_BITS=20,
+	parameter TAG_BITS=21,
 	parameter N_POW=4
 	)(
 	input logic [TAG_BITS-1:0] tag_in, 

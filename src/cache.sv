@@ -3,19 +3,21 @@ module cache #(
 	parameter ADDR_WIDTH=32, 
 	parameter N_WAYS=2,
 	parameter BLOCK_SIZE=128,
-	parameter NUM_SETS=32, //8KB / 128 = 64 / 2 = 32,
+	parameter NUM_SETS=16, //4KB / 128 = 64 / 2 = 32,
 	parameter OFFSET_BITS=7, 
-	parameter INDEX_BITS=5, 
-	parameter TAG_BITS=20,
+	parameter INDEX_BITS=4, 
+	parameter TAG_BITS=21,
 	parameter N_POW=4,
-	parameter SRAM_ADDR_WIDTH=16, 
-	parameter SRAM_LATENCY=7
+	parameter SRAM_ADDR_WIDTH=12, 
+	parameter SRAM_LATENCY=1
 	)(
 	//core to cache interface
 	input logic clk, rst, 
 	input logic ren, wen,
 	input logic [DATA_WIDTH-1:0] din,
 	input logic [ADDR_WIDTH-1:0] addr, 
+	input logic [2:0] storecntrl,
+	input logic [4:0] loadcntrl,
 	output logic cache_rdy, 
 	output logic [DATA_WIDTH-1:0] dout, 
 	
@@ -62,8 +64,13 @@ module cache #(
 	//Outputs from replacement scheme module
 	logic [N_POW-1:0] evict_way;
 	
+	//SRAM stuff
 	logic [15:0] sram_latency_counter;
 	logic [1:0] sram_addr_lsb;
+	logic [3:0] cell_sense_en, cell_wen;
+	logic [4:0] sram_loadcntrl;
+	logic [2:0] sram_storecntrl;
+	logic [31:0] sram_dout; 
 
 	//Instantiate Address Translator 
 	address_translator a0(.*);
@@ -73,12 +80,34 @@ module cache #(
 	
 	//Instantiate replacement scheme module
 	replacement_scheme rs0(.*); 
+	
+	function logic[3:0] RSR(input logic[3:0] A, input logic[1:0] B);
+		automatic logic [7:0] C = {A, A};
+		C = C << B; 
+		RSR = C[7:4];
+	endfunction
+	
+	function logic[31:0] RSR_32(input logic [31:0] A, input logic [1:0] B);
+		automatic logic [63:0] C = {A, A}; 
+		C = C << (B * 8); 
+		RSR_32 = C[63:32];
+	endfunction
 
 	always_comb begin
 		line_tags = cache_tags[index_out];
 		line_dirty = cache_dirty[index_out];
 		line_empty = cache_empty[index_out];
 		line_age = cache_age[index_out];
+		
+		cell_0_sense_en = cell_sense_en[0];
+		cell_1_sense_en = cell_sense_en[1];
+		cell_2_sense_en = cell_sense_en[2];
+		cell_3_sense_en = cell_sense_en[3];
+		cell_0_wen = cell_wen[0];
+		cell_1_wen = cell_wen[1];
+		cell_2_wen = cell_wen[2];
+		cell_3_wen = cell_wen[3];
+		sram_dout = RSR_32({cell_3_dout, cell_2_dout, cell_1_dout, cell_0_dout}, sram_addr_lsb);
 	end
 
 	always_ff @(posedge clk) begin
@@ -92,6 +121,7 @@ module cache #(
 			mem_wen <= 0;
 			mem_din <= 32'h0;
 			mem_addr <= 32'h0;
+			sram_latency_counter <= 0;
 		end else begin
 			case (state) 
 				setup: begin
@@ -108,21 +138,27 @@ module cache #(
 					cache_rdy <= 1; 
 				end
 				idle: begin
+					//Are we reading or writing when the cache is ready? 
 					if ((ren | wen) & cache_rdy) begin
+						cache_rdy <= 0;
+						//Cache Miss
 						if (cache_miss) begin
 							cache_tags[index_out][evict_way] = tag_out;
 							cache_age[index_out][evict_way] = 0;
 							cache_empty[index_out][evict_way] = 0; 
 							if (wen) cache_dirty[index_out][evict_way] = 1; 
+							cache_rdy <= 1;
+							//TODO: Transition to next state
+						//Cache Hit
 						end else if (cache_hit) begin
 							cache_age[index_out][hit_way] = 0; 
 							sram_addr_lsb <= addr[1:0]; 
 							case (addr[1:0])
 								2'b00: begin
-									cell_0_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_1_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_2_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_3_addr <= addr[SRAM_ADDR_WIDTH+1:2];
+									cell_0_addr <= {hit_way[0], index_out, offset_out};
+									cell_1_addr <= {hit_way[0], index_out, offset_out};
+									cell_2_addr <= {hit_way[0], index_out, offset_out};
+									cell_3_addr <= {hit_way[0], index_out, offset_out};
 									if (wen) begin
 										cell_0_din <= din[7:0];
 										cell_1_din <= din[15:8];
@@ -131,10 +167,10 @@ module cache #(
 									end
 								end
 								2'b01: begin
-									cell_0_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_1_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_2_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_3_addr <= addr[SRAM_ADDR_WIDTH+1:2];
+									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out};
+									cell_2_addr <= {hit_way[0], index_out, offset_out};
+									cell_3_addr <= {hit_way[0], index_out, offset_out};
 									if (wen) begin
 										cell_1_din <= din[7:0];
 										cell_2_din <= din[15:8];
@@ -143,10 +179,10 @@ module cache #(
 									end
 								end
 								2'b10: begin
-									cell_0_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_1_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_2_addr <= addr[SRAM_ADDR_WIDTH+1:2];
-									cell_3_addr <= addr[SRAM_ADDR_WIDTH+1:2];
+									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out};
+									cell_3_addr <= {hit_way[0], index_out, offset_out};
 									if (wen) begin
 										cell_2_din <= din[7:0];
 										cell_3_din <= din[15:8];
@@ -155,10 +191,10 @@ module cache #(
 									end
 								end
 								2'b11: begin
-									cell_0_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_1_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_2_addr <= addr[SRAM_ADDR_WIDTH+1:2] + 1;
-									cell_3_addr <= addr[SRAM_ADDR_WIDTH+1:2];
+									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out} + 1;
+									cell_3_addr <= {hit_way[0], index_out, offset_out};
 									if (wen) begin
 										cell_3_din <= din[7:0];
 										cell_0_din <= din[15:8];
@@ -167,14 +203,29 @@ module cache #(
 									end
 								end
 							endcase
-							cell_0_wen <= wen;
-							cell_1_wen <= wen;
-							cell_2_wen <= wen;
-							cell_3_wen <= wen;
-							cell_0_sense_en <= ren;
-							cell_1_sense_en <= ren;
-							cell_2_sense_en <= ren;
-							cell_3_sense_en <= ren;
+							if (ren) 
+								case (loadcntrl)
+									5'b00001: cell_sense_en = RSR(4'b0001, addr[1:0]);
+									5'b00010: cell_sense_en = RSR(4'b0011, addr[1:0]); 
+									5'b00100: cell_sense_en = 4'b1111; 
+									5'b01000: cell_sense_en = RSR(4'b0001, addr[1:0]);
+									5'b10000: cell_sense_en = RSR(4'b0011, addr[1:0]);
+									default: cell_sense_en = 4'b0000;
+								endcase
+							else cell_sense_en = 0;
+							if (wen)
+								case (storecntrl)
+									3'b001: cell_wen = RSR(4'b0001, addr[1:0]);
+									3'b010: cell_wen = RSR(4'b0011, addr[1:0]);
+									3'b100: cell_wen = 4'b1111;
+									default: cell_wen = 4'b0000;
+								endcase
+							else cell_wen = 0;
+							read_flag <= ren;
+							sram_storecntrl <= storecntrl;
+							sram_loadcntrl <= loadcntrl;
+							write_flag <= wen;
+							sram_latency_counter <= 0;
 							state <= cache_rw;
 						end
 					end
@@ -182,20 +233,29 @@ module cache #(
 				cache_rw: begin
 					if (sram_latency_counter >= SRAM_LATENCY) begin
 						sram_latency_counter <= 0; 
-						case (sram_addr_lsb) 
-							2'b00: begin
-								
-							end
-						endcase
-						
+						if (read_flag) begin
+							case (sram_loadcntrl) 
+								5'b00001: dout <= {{24{sram_dout[7]}},sram_dout[7:0]};
+								5'b00010: dout <= {{16{sram_dout[15]}},sram_dout[15:0]};
+								5'b00100: dout <= sram_dout; 
+								5'b01000: dout <= {{24{1'b0}}, sram_dout[7:0]};
+								5'b10000: dout <= {{16{1'b0}}, sram_dout[15:0]}; 
+								default: dout <= 32'h0;
+							endcase
+						end
+						read_flag <= 0; 
+						write_flag <= 0;
 						state <= idle;
+						cache_rdy <= 1;
 					end else begin
 						sram_latency_counter <= sram_latency_counter + 1;
-						cell_0_sense_en <= 1'b0;
-						cell_1_sense_en <= 1'b0;
-						cell_2_sense_en <= 1'b0;
-						cell_3_sense_en <= 1'b0;
-						cell_0_wen <= 1'b0; cell_1_wen <= 1'b0; cell_2_wen <= 1'b0; cell_3_wen <= 1'b0;
+						cell_sense_en <= 4'b0000;
+						cell_wen <= 4'b0000;
+//						cell_0_sense_en <= 1'b0;
+//						cell_1_sense_en <= 1'b0;
+//						cell_2_sense_en <= 1'b0;
+//						cell_3_sense_en <= 1'b0;
+//						cell_0_wen <= 1'b0; cell_1_wen <= 1'b0; cell_2_wen <= 1'b0; cell_3_wen <= 1'b0;
 					end 
 				end
 				default: begin

@@ -5,7 +5,7 @@ module address_translator #(
 	parameter NUM_SETS=32, 
 	parameter OFFSET_BITS=7,
 	parameter INDEX_BITS=5,
-	parameter TAG_BITS=20
+	parameter TAG_BITS=21
 	)(
 	input logic [ADDR_WIDTH-1:0] addr, 
 	output logic [TAG_BITS-1:0] tag_out, 
