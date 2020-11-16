@@ -8,7 +8,7 @@ logic [2:0] storecntrl;
 
 logic [7:0] cell_0_dout, cell_1_dout, cell_2_dout, cell_3_dout;
 logic [7:0] cell_0_din, cell_1_din, cell_2_din, cell_3_din;
-logic [11:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
+logic [9:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
 logic cell_0_sense_en, cell_1_sense_en, cell_2_sense_en, cell_3_sense_en;
 logic cell_0_wen, cell_1_wen, cell_2_wen, cell_3_wen;
 
@@ -21,6 +21,29 @@ sram_behav sram_cell_1(clk, cell_1_din, cell_1_sense_en, cell_1_wen, cell_1_addr
 sram_behav sram_cell_2(clk, cell_2_din, cell_2_sense_en, cell_2_wen, cell_2_addr, cell_2_dout);
 sram_behav sram_cell_3(clk, cell_3_din, cell_3_sense_en, cell_3_wen, cell_3_addr, cell_3_dout);
 
+task write_cache(input logic [31:0] d, a);
+//	@(posedge cache_rdy); 
+	while (cache_rdy == 0) #1;
+	din = d;
+	addr = a; 
+	storecntrl = 3'b100;
+	wen = 1'b1; 
+	@(negedge cache_rdy);
+	storecntrl = 0;
+	wen = 0; 
+endtask
+
+task read_cache(input logic [31:0] a);
+//	@(posedge cache_rdy);
+	while (cache_rdy == 0) #1;
+	addr = a; 
+	loadcntrl = 5'b00100;
+	ren = 1'b1;
+	@(negedge cache_rdy);
+	loadcntrl = 0;
+	ren = 0;
+endtask
+
 initial begin
 	clk = 0;
 	rst = 1;
@@ -32,23 +55,32 @@ initial begin
 	storecntrl = 0; 
 	#10
 	rst = 0; 
-	#10 
-	ren = 1;
-	addr = 32'hace12000; 
-	loadcntrl = 5'b00100; 
-	#10
-	ren = 0; 
+	read_cache(32'hace12000);
+	write_cache(32'hdeadbeef, 32'hace12000); 
+	read_cache(32'hace12000);
+	write_cache(32'hdeadbeef, 32'hace12003);
+	read_cache(32'hace12000);
+	read_cache(32'hace12001);
+	read_cache(32'hace12002);
+	read_cache(32'hace12003);
+	read_cache(32'hace12004);
+//	#10 
+//	ren = 1;
+//	addr = 32'hace12000; 
+//	loadcntrl = 5'b00100; 
+//	#10
+//	ren = 0; 
+////	@(posedge cache_rdy);
+//	#10 
+//	storecntrl = 3'b100;
+//	din = 32'hdeadbeef; 
+//	wen = 1;
+//	#10
+//	wen = 0; 
 //	@(posedge cache_rdy);
-	#10 
-	storecntrl = 3'b100;
-	din = 32'hdeadbeef; 
-	wen = 1;
-	#10
-	wen = 0; 
-	@(posedge cache_rdy);
-	ren = 1;
-	@(negedge cache_rdy);
-	ren = 0;
+//	ren = 1;
+//	@(negedge cache_rdy);
+//	ren = 0;
 end
 
 //initial begin

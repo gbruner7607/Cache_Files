@@ -8,7 +8,7 @@ module cache #(
 	parameter INDEX_BITS=4, 
 	parameter TAG_BITS=21,
 	parameter N_POW=4,
-	parameter SRAM_ADDR_WIDTH=12, 
+	parameter SRAM_ADDR_WIDTH=10, 
 	parameter SRAM_LATENCY=1
 	)(
 	//core to cache interface
@@ -81,16 +81,16 @@ module cache #(
 	//Instantiate replacement scheme module
 	replacement_scheme rs0(.*); 
 	
-	function logic[3:0] RSR(input logic[3:0] A, input logic[1:0] B);
+	function logic[3:0] RSL(input logic[3:0] A, input logic[1:0] B);
 		automatic logic [7:0] C = {A, A};
 		C = C << B; 
-		RSR = C[7:4];
+		RSL = C[7:4];
 	endfunction
 	
 	function logic[31:0] RSR_32(input logic [31:0] A, input logic [1:0] B);
 		automatic logic [63:0] C = {A, A}; 
-		C = C << (B * 8); 
-		RSR_32 = C[63:32];
+		C = C >> (B * 8); 
+		RSR_32 = C[31:0];
 	endfunction
 
 	always_comb begin
@@ -155,10 +155,10 @@ module cache #(
 							sram_addr_lsb <= addr[1:0]; 
 							case (addr[1:0])
 								2'b00: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out};
-									cell_1_addr <= {hit_way[0], index_out, offset_out};
-									cell_2_addr <= {hit_way[0], index_out, offset_out};
-									cell_3_addr <= {hit_way[0], index_out, offset_out};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
 									if (wen) begin
 										cell_0_din <= din[7:0];
 										cell_1_din <= din[15:8];
@@ -167,10 +167,10 @@ module cache #(
 									end
 								end
 								2'b01: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out};
-									cell_2_addr <= {hit_way[0], index_out, offset_out};
-									cell_3_addr <= {hit_way[0], index_out, offset_out};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
 									if (wen) begin
 										cell_1_din <= din[7:0];
 										cell_2_din <= din[15:8];
@@ -179,10 +179,10 @@ module cache #(
 									end
 								end
 								2'b10: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_2_addr <= {hit_way[0], index_out, offset_out};
-									cell_3_addr <= {hit_way[0], index_out, offset_out};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
 									if (wen) begin
 										cell_2_din <= din[7:0];
 										cell_3_din <= din[15:8];
@@ -191,10 +191,10 @@ module cache #(
 									end
 								end
 								2'b11: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_2_addr <= {hit_way[0], index_out, offset_out} + 1;
-									cell_3_addr <= {hit_way[0], index_out, offset_out};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
+									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
 									if (wen) begin
 										cell_3_din <= din[7:0];
 										cell_0_din <= din[15:8];
@@ -205,18 +205,18 @@ module cache #(
 							endcase
 							if (ren) 
 								case (loadcntrl)
-									5'b00001: cell_sense_en = RSR(4'b0001, addr[1:0]);
-									5'b00010: cell_sense_en = RSR(4'b0011, addr[1:0]); 
+									5'b00001: cell_sense_en = RSL(4'b0001, addr[1:0]);
+									5'b00010: cell_sense_en = RSL(4'b0011, addr[1:0]); 
 									5'b00100: cell_sense_en = 4'b1111; 
-									5'b01000: cell_sense_en = RSR(4'b0001, addr[1:0]);
-									5'b10000: cell_sense_en = RSR(4'b0011, addr[1:0]);
+									5'b01000: cell_sense_en = RSL(4'b0001, addr[1:0]);
+									5'b10000: cell_sense_en = RSL(4'b0011, addr[1:0]);
 									default: cell_sense_en = 4'b0000;
 								endcase
 							else cell_sense_en = 0;
 							if (wen)
 								case (storecntrl)
-									3'b001: cell_wen = RSR(4'b0001, addr[1:0]);
-									3'b010: cell_wen = RSR(4'b0011, addr[1:0]);
+									3'b001: cell_wen = RSL(4'b0001, addr[1:0]);
+									3'b010: cell_wen = RSL(4'b0011, addr[1:0]);
 									3'b100: cell_wen = 4'b1111;
 									default: cell_wen = 4'b0000;
 								endcase

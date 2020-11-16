@@ -4,7 +4,7 @@ module sram_behav #(
 	input logic clk,
 	input logic[7:0] din,
 	input logic sense_en, wen,
-	input logic [11:0] addr, 
+	input logic [9:0] addr, 
 	output logic [7:0] dout
 );
 
