@@ -57,15 +57,19 @@ initial begin
 	storecntrl = 0; 
 	#10
 	rst = 0; 
-	#10
-	dut.cache_empty[0][0] = 0;
-	dut.cache_empty[0][1] = 0;
-	dut.cache_dirty[0][0] = 1; 
-	dut.cache_age[0][0] = 5;
-	#10;
+//	#10
+//	dut.cache_empty[0][0] = 0;
+//	dut.cache_empty[0][1] = 0;
+//	dut.cache_dirty[0][0] = 1; 
+//	dut.cache_age[0][0] = 5;
+//	#10;
 	
-	write_cache(32'hdeadbeef, 32'hace12000);
+//	write_cache(32'hdeadbeef, 32'hace12000);
 //	read_cache(32'hace12004);
+	read_cache(32'h0);
+	read_cache(32'h4);
+	read_cache(32'h8);
+	
 	
 //	#10
 //	for (int i = 0; i < 32; i++) dut.block_buf[i] = {8'(i), 8'(i), 8'(i), 8'(i)}; 

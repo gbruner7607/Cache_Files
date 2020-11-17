@@ -367,6 +367,7 @@ module cache #(
 				end
 				mem_to_buffer: begin
 				    if (block_counter >= 31) begin
+				    	block_buf[block_counter-1] <= mem_dout;
 				        mem_ren <= 0; 
 				        block_counter <= 0; 
 				        sram_latency_counter <= 0;
@@ -380,10 +381,14 @@ module cache #(
 						cell_3_addr <= block_addr;
 						cell_wen <= 4'b1111;
 						state <= buffer_to_sram;
+					end else if (block_counter == 0) begin
+						block_counter <= block_counter + 1;
+						mem_addr <= mem_addr + 1;
 				    end else begin
-				        block_buf[block_counter] <= mem_dout;
+				        block_buf[block_counter-1] <= mem_dout;
+				        mem_ren <= 1;
 				        block_counter <= block_counter + 1;
-				        mem_addr <= mem_addr + 1;
+				        if (mem_ren) mem_addr <= mem_addr + 1;
 				    end
 //				    if (EMPTY) begin 
 //				        buff_wr_en <= 1;
