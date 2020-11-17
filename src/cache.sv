@@ -374,7 +374,7 @@ module cache #(
 				        cell_0_din <= block_buf[0][7:0]; 
 						cell_1_din <= block_buf[0][15:8]; 
 						cell_2_din <= block_buf[0][23:16]; 
-						cell_3_din <= block_buf[0][32:24]; 
+					    	cell_3_din <= block_buf[0][31:24]; 
 						cell_0_addr <= block_addr;
 						cell_1_addr <= block_addr;
 						cell_2_addr <= block_addr;
@@ -468,7 +468,7 @@ module cache #(
 								cell_0_din <= block_buf[block_counter + 1][7:0]; 
 								cell_1_din <= block_buf[block_counter + 1][15:8]; 
 								cell_2_din <= block_buf[block_counter + 1][23:16]; 
-								cell_3_din <= block_buf[block_counter + 1][32:24]; 
+								cell_3_din <= block_buf[block_counter + 1][31:24]; 
 								cell_0_addr <= block_addr + block_counter + 1;
 								cell_1_addr <= block_addr + block_counter + 1;
 								cell_2_addr <= block_addr + block_counter + 1;
