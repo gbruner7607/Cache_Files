@@ -9,7 +9,7 @@ module replacement_scheme #(
 
 logic [N_WAYS-1:0] way_encoded; 
 
-function logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
+function automatic logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
 	automatic logic [N_POW-1:0] retval = 0; 
 	for (int i = 0; i < N_WAYS; i++) begin
 		if (encoded[i]) retval = retval + i; 
@@ -17,7 +17,7 @@ function logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
 	decode = retval;
 endfunction
 
-function logic [N_POW-1:0] replace(input logic line_empty [N_WAYS], input logic [31:0] line_age [N_WAYS]);
+function automatic logic [N_POW-1:0] replace(input logic line_empty [N_WAYS], input logic [31:0] line_age [N_WAYS]);
 	automatic int retval = 0; 
 	automatic int ret_age = line_age[0];
 	for (int i = 0; i < N_WAYS; i++) begin

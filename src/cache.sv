@@ -95,13 +95,13 @@ module cache #(
 	//Instantiate replacement scheme module
 	replacement_scheme rs0(.*); 
 	
-	function logic[3:0] RSL(input logic[3:0] A, input logic[1:0] B);
+	function automatic logic[3:0] RSL(input logic[3:0] A, input logic[1:0] B);
 		automatic logic [7:0] C = {A, A};
 		C = C << B; 
 		RSL = C[7:4];
 	endfunction
 	
-	function logic[31:0] RSR_32(input logic [31:0] A, input logic [1:0] B);
+	function automatic logic[31:0] RSR_32(input logic [31:0] A, input logic [1:0] B);
 		automatic logic [63:0] C = {A, A}; 
 		C = C >> (B * 8); 
 		RSR_32 = C[31:0];
@@ -148,15 +148,15 @@ module cache #(
 				setup: begin
 					for (int i = 0; i < NUM_SETS; i++) begin
 						for (int j = 0; j < N_WAYS; j++) begin
-							cache_tags[i][j] = 0;
-							cache_data[i][j] = 0;
-							cache_dirty[i][j] = 0;
-							cache_empty[i][j] = 1;
-							cache_age[i][j] = 0; 
+							cache_tags[i][j] <= 0;
+							cache_data[i][j] <= 0;
+							cache_dirty[i][j] <= 0;
+							cache_empty[i][j] <= 1;
+							cache_age[i][j] <= 0; 
 						end
 					end
 					for (int i = 0; i < 32; i++) begin
-						block_buf[i] = 0;
+						block_buf[i] <= 0;
 					end
 					state <= idle;
 					cache_rdy <= 1; 
@@ -179,7 +179,7 @@ module cache #(
                                 cell_1_addr <= {evict_way[0], index_out, 5'b00000};
                                 cell_2_addr <= {evict_way[0], index_out, 5'b00000}; 
                                 cell_3_addr <= {evict_way[0], index_out, 5'b00000};
-                                cell_sense_en = 4'b1111;
+                                cell_sense_en <= 4'b1111;
                                 sram_latency_counter <= 0;
                                 state <= sram_to_buffer; 
                                 block_counter <= 0;
@@ -192,21 +192,21 @@ module cache #(
 								mem_ren <= 1; 
 								state <= mem_to_buffer;
 								block_addr <= {evict_way[0], index_out, 5'b00000};
-								block_offset = offset_out[6:2]; 
+								block_offset <= offset_out[6:2]; 
 								sram_loadcntrl <= loadcntrl;
 								sram_storecntrl <= storecntrl;
-								sram_addr_lsb = addr[1:0];
+								sram_addr_lsb <= addr[1:0];
 								read_flag <= ren;
 								write_flag <= wen;
 								cache_rdy <= 0;
 							end
-							cache_tags[index_out][evict_way] = tag_out;
-							cache_age[index_out][evict_way] = 0;
-							cache_empty[index_out][evict_way] = 0; 
-							if (wen) cache_dirty[index_out][evict_way] = 1; 
+							cache_tags[index_out][evict_way] <= tag_out;
+							cache_age[index_out][evict_way] <= 0;
+							cache_empty[index_out][evict_way] <= 0; 
+							if (wen) cache_dirty[index_out][evict_way] <= 1; 
 						//Cache Hit
 						end else if (cache_hit) begin
-							cache_age[index_out][hit_way] = 0; 
+							cache_age[index_out][hit_way] <= 0; 
 							sram_addr_lsb <= addr[1:0]; 
 							case (addr[1:0])
 								2'b00: begin
@@ -260,22 +260,22 @@ module cache #(
 							endcase
 							if (ren) 
 								case (loadcntrl)
-									5'b00001: cell_sense_en = RSL(4'b0001, addr[1:0]);
-									5'b00010: cell_sense_en = RSL(4'b0011, addr[1:0]); 
-									5'b00100: cell_sense_en = 4'b1111; 
-									5'b01000: cell_sense_en = RSL(4'b0001, addr[1:0]);
-									5'b10000: cell_sense_en = RSL(4'b0011, addr[1:0]);
-									default: cell_sense_en = 4'b0000;
+									5'b00001: cell_sense_en <= RSL(4'b0001, addr[1:0]);
+									5'b00010: cell_sense_en <= RSL(4'b0011, addr[1:0]); 
+									5'b00100: cell_sense_en <= 4'b1111; 
+									5'b01000: cell_sense_en <= RSL(4'b0001, addr[1:0]);
+									5'b10000: cell_sense_en <= RSL(4'b0011, addr[1:0]);
+									default: cell_sense_en <= 4'b0000;
 								endcase
-							else cell_sense_en = 0;
+							else cell_sense_en <= 0;
 							if (wen)
 								case (storecntrl)
-									3'b001: cell_wen = RSL(4'b0001, addr[1:0]);
-									3'b010: cell_wen = RSL(4'b0011, addr[1:0]);
-									3'b100: cell_wen = 4'b1111;
-									default: cell_wen = 4'b0000;
+									3'b001: cell_wen <= RSL(4'b0001, addr[1:0]);
+									3'b010: cell_wen <= RSL(4'b0011, addr[1:0]);
+									3'b100: cell_wen <= 4'b1111;
+									default: cell_wen <= 4'b0000;
 								endcase
-							else cell_wen = 0;
+							else cell_wen <= 0;
 							read_flag <= ren;
 							sram_storecntrl <= storecntrl;
 							sram_loadcntrl <= loadcntrl;
@@ -374,7 +374,7 @@ module cache #(
 				        cell_0_din <= block_buf[0][7:0]; 
 						cell_1_din <= block_buf[0][15:8]; 
 						cell_2_din <= block_buf[0][23:16]; 
-						cell_3_din <= block_buf[0][32:24]; 
+						cell_3_din <= block_buf[0][31:24]; 
 						cell_0_addr <= block_addr;
 						cell_1_addr <= block_addr;
 						cell_2_addr <= block_addr;
@@ -468,7 +468,7 @@ module cache #(
 								cell_0_din <= block_buf[block_counter + 1][7:0]; 
 								cell_1_din <= block_buf[block_counter + 1][15:8]; 
 								cell_2_din <= block_buf[block_counter + 1][23:16]; 
-								cell_3_din <= block_buf[block_counter + 1][32:24]; 
+								cell_3_din <= block_buf[block_counter + 1][31:24]; 
 								cell_0_addr <= block_addr + block_counter + 1;
 								cell_1_addr <= block_addr + block_counter + 1;
 								cell_2_addr <= block_addr + block_counter + 1;
@@ -490,7 +490,7 @@ module cache #(
 			for (int i = 0; i < NUM_SETS; i++) begin
 				for (int j = 0; j < N_WAYS; j++) begin
 					if (cache_empty[i][j] == 0) begin
-						cache_age[i][j]++; 
+						cache_age[i][j] <= cache_age[i][j] + 1; 
 					end
 				end
 			end

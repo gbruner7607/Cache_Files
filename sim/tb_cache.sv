@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module tb_cache ();
 
 logic clk, rst, ren, wen;
@@ -16,12 +18,12 @@ always #5 clk=~clk;
 
 cache dut(.*); 
 
-sram_behav sram_cell_0(clk, cell_0_din, cell_0_sense_en, cell_0_wen, cell_0_addr, cell_0_dout);
-sram_behav sram_cell_1(clk, cell_1_din, cell_1_sense_en, cell_1_wen, cell_1_addr, cell_1_dout);
-sram_behav sram_cell_2(clk, cell_2_din, cell_2_sense_en, cell_2_wen, cell_2_addr, cell_2_dout);
-sram_behav sram_cell_3(clk, cell_3_din, cell_3_sense_en, cell_3_wen, cell_3_addr, cell_3_dout);
+sram_behav sram_cell_0(clk, rst, cell_0_din, cell_0_sense_en, cell_0_wen, cell_0_addr, cell_0_dout);
+sram_behav sram_cell_1(clk, rst, cell_1_din, cell_1_sense_en, cell_1_wen, cell_1_addr, cell_1_dout);
+sram_behav sram_cell_2(clk, rst, cell_2_din, cell_2_sense_en, cell_2_wen, cell_2_addr, cell_2_dout);
+sram_behav sram_cell_3(clk, rst, cell_3_din, cell_3_sense_en, cell_3_wen, cell_3_addr, cell_3_dout);
 
-mem_behav main_mem(clk, mem_ren, mem_wen, mem_din, mem_addr, mem_dout);
+mem_behav main_mem(clk, rst, mem_ren, mem_wen, mem_din, mem_addr, mem_dout);
 
 task write_cache(input logic [31:0] d, a);
 //	@(posedge cache_rdy); 

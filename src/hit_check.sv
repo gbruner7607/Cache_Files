@@ -13,7 +13,7 @@ module hit_check #(
 
 logic [N_WAYS-1:0] hit_encoded; 
 
-function logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
+function automatic logic [N_POW-1:0] decode(input logic [N_WAYS-1:0] encoded);
 	automatic logic [N_POW-1:0] retval = 0; 
 	for (int i = 0; i < N_WAYS; i++) begin
 		if (encoded[i]) begin

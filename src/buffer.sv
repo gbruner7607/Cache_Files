@@ -64,8 +64,8 @@ begin
    readCounter = 0; 
 
    writeCounter = 0; 
-   Count <= 0;
-   dataOut <= 0;
+   Count = 0;
+   dataOut = 0;
    //for (i=0; i<8; i++) begin
       //FIFO [i] = 0;
   // end
@@ -74,7 +74,7 @@ begin
 
   else if (RD ==1'b1 && ~EMPTY) begin 
 
-   dataOut <= FIFO[readCounter]; 
+   dataOut = FIFO[readCounter]; 
 
    readCounter = readCounter+1; 
   end 
