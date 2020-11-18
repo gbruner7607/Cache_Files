@@ -78,6 +78,7 @@ module cache #(
 	logic [SRAM_ADDR_WIDTH-1:0] block_addr;
 	logic [OFFSET_BITS-1:0] block_offset;
 	logic [31:0] mem_addr_tmp;
+	logic [31:0] wr_tmp;
 
         // buffer parameters
         logic buff_en, buff_wr_en, buff_rd_en, buff_rst, EMPTY, FULL; //added by Nishith
@@ -144,6 +145,14 @@ module cache #(
 			buff_wr_en <= 0;
 			buff_en <= 0;
 		end else begin
+			for (int i = 0; i < NUM_SETS; i++) begin
+				for (int j = 0; j < N_WAYS; j++) begin
+					if (cache_empty[i][j] == 0) begin
+						cache_age[i][j] <= cache_age[i][j] + 1; 
+					end
+				end
+			end
+		
 			case (state) 
 				setup: begin
 					for (int i = 0; i < NUM_SETS; i++) begin
@@ -167,7 +176,7 @@ module cache #(
 						cache_rdy <= 0;
 						//Cache Miss
 						if (cache_miss) begin
-							
+							if (wen) wr_tmp <= din;
 //							cache_rdy <= 1;
 							//TODO: Transition to next state
 							//Need to writeback dirty block. Load it into the block buffer
@@ -183,6 +192,8 @@ module cache #(
                                 sram_latency_counter <= 0;
                                 state <= sram_to_buffer; 
                                 block_counter <= 0;
+                                read_flag <= ren;
+                                write_flag <= wen;
                                 buff_en <= 1;  //added by Nishith
                             end 
 							//Block isn't dirty, we can replace it now
@@ -191,6 +202,7 @@ module cache #(
 								mem_addr_tmp <= {tag_out, index_out, 7'h00};
 								mem_ren <= 1; 
 								state <= mem_to_buffer;
+								block_counter <= 0;
 								block_addr <= {evict_way[0], index_out, 5'b00000};
 								block_offset <= offset_out[6:2]; 
 								sram_loadcntrl <= loadcntrl;
@@ -206,7 +218,7 @@ module cache #(
 							if (wen) cache_dirty[index_out][evict_way] <= 1; 
 						//Cache Hit
 						end else if (cache_hit) begin
-							cache_age[index_out][hit_way] <= 0; 
+							cache_age[index_out][hit_way] <= 32'h0; 
 							sram_addr_lsb <= addr[1:0]; 
 							case (addr[1:0])
 								2'b00: begin
@@ -368,6 +380,7 @@ module cache #(
 				mem_to_buffer: begin
 				    if (block_counter >= 31) begin
 				    	block_buf[block_counter-1] <= mem_dout;
+				    	
 				        mem_ren <= 0; 
 				        block_counter <= 0; 
 				        sram_latency_counter <= 0;
@@ -381,6 +394,102 @@ module cache #(
 						cell_3_addr <= block_addr;
 						cell_wen <= 4'b1111;
 						state <= buffer_to_sram;
+						if (write_flag) begin
+							case(sram_storecntrl)
+								3'b001: begin
+									case(sram_addr_lsb)
+										2'b00: block_buf[block_offset][7:0] <= wr_tmp[7:0];
+										2'b01: block_buf[block_offset][15:8] <= wr_tmp[7:0];
+										2'b10: block_buf[block_offset][23:16] <= wr_tmp[7:0];
+										2'b11: block_buf[block_offset][31:24] <= wr_tmp[7:0];
+									endcase
+								end
+								3'b010: begin
+									case(sram_addr_lsb)
+										2'b00: block_buf[block_offset][15:0] <= wr_tmp[15:0]; 
+										2'b01: block_buf[block_offset][23:8] <= wr_tmp[15:0];
+										2'b10: block_buf[block_offset][31:16] <= wr_tmp[15:0];
+										2'b11: begin
+											block_buf[block_offset][31:24] <= wr_tmp[7:0]; 
+											block_buf[block_offset + 1][7:0] <= wr_tmp[15:8]; 
+										end
+									endcase
+								end
+								3'b100: begin
+									case(sram_addr_lsb)
+										2'b00: block_buf[block_offset] <= wr_tmp; 
+										2'b01: begin
+											block_buf[block_offset][31:8] <= wr_tmp[23:0];
+											block_buf[block_offset+1][7:0] <= wr_tmp[31:24]; 
+										end
+										2'b10: begin
+											block_buf[block_offset][31:16] <= wr_tmp[15:0];
+											block_buf[block_offset+1][15:0] <= wr_tmp[31:16]; 
+										end
+										2'b11: begin
+											block_buf[block_offset][31:24] <= wr_tmp[7:0];
+											block_buf[block_offset+1][23:0] <= wr_tmp[31:8]; 
+										end
+									endcase
+								end
+								default: begin
+								
+								end
+							endcase
+							if (block_offset == 0) begin
+								case (sram_storecntrl) 
+									3'b001: begin
+										case (sram_addr_lsb) 
+											2'b00: cell_0_din <= wr_tmp[7:0];
+											2'b01: cell_1_din <= wr_tmp[7:0];
+											2'b10: cell_2_din <= wr_tmp[7:0];
+											2'b11: cell_3_din <= wr_tmp[7:0];
+										endcase
+									end
+									3'b010: begin
+										case (sram_addr_lsb) 
+											2'b00: begin
+												cell_0_din <= wr_tmp[7:0];
+												cell_1_din <= wr_tmp[15:8];
+											end
+											2'b01: begin
+												cell_1_din <= wr_tmp[7:0];
+												cell_2_din <= wr_tmp[15:8];
+											end
+											2'b10: begin
+												cell_2_din <= wr_tmp[7:0];
+												cell_3_din <= wr_tmp[15:8];
+											end
+											2'b11: begin
+												cell_3_din <= wr_tmp[7:0];
+											end
+										endcase
+									end
+									3'b100: begin
+										case (sram_addr_lsb) 
+											2'b00: begin
+												cell_0_din <= wr_tmp[7:0];
+												cell_1_din <= wr_tmp[15:8];
+												cell_2_din <= wr_tmp[23:16];
+												cell_3_din <= wr_tmp[31:24];
+											end
+											2'b01: begin
+												cell_1_din <= wr_tmp[7:0];
+												cell_2_din <= wr_tmp[15:8];
+												cell_3_din <= wr_tmp[23:16];
+											end
+											2'b10: begin
+												cell_2_din <= wr_tmp[7:0];
+												cell_3_din <= wr_tmp[15:8];
+											end
+											2'b11: begin
+												cell_3_din <= wr_tmp[7:0];
+											end
+										endcase
+									end
+								endcase
+							end
+						end
 					end else if (block_counter == 0) begin
 						block_counter <= block_counter + 1;
 						mem_addr <= mem_addr + 1;
@@ -487,13 +596,7 @@ module cache #(
 				end
 			endcase
 
-			for (int i = 0; i < NUM_SETS; i++) begin
-				for (int j = 0; j < N_WAYS; j++) begin
-					if (cache_empty[i][j] == 0) begin
-						cache_age[i][j] <= cache_age[i][j] + 1; 
-					end
-				end
-			end
+			
 		end
 	end
 

@@ -8,7 +8,8 @@ module mem_behav (
 
 logic [31:0] data [65536];
 
-int fd = $fopen("/home/gbruner/ece551/Cache_Project/Cache_Files/mem_files/test.hex", "r"); ;
+//int fd = $fopen("/home/gbruner/ece551/Cache_Project/Cache_Files/mem_files/test.hex", "r");
+int fd = $fopen("C:/Users/grayb/Projects/Cache_Files/mem_files/test.hex", "r");
 int i;
 string a;
 
@@ -33,6 +34,8 @@ always_ff @(posedge clk) begin
 			data[i] = a.atohex();
 			i = i + 1;
 		end
+		for (int j = i; j < 65536; j++)
+			data[j] = 0;
 	end else begin
 		if (wen) begin
 			data[16'(addr)] <= din;
