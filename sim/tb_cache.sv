@@ -42,7 +42,7 @@ task write_cache(input logic [31:0] a, d);
 	#1;
 	$display("DIN: %08x", din);
 	$display("ADDR: %08x", addr);
-/*	if (dut.cache_hit) begin 
+	if (dut.cache_hit) begin 
 		$display("HIT!");
 		num_hits++;
 		was_miss = 0;
@@ -52,14 +52,14 @@ task write_cache(input logic [31:0] a, d);
 		was_miss = 1;
 	end
 	@(posedge clk);
-	t0 = $time; */
+	t0 = $time;
 	@(negedge cache_rdy);
 	storecntrl = 0;
 	wen = 0; 
-	/*@(posedge cache_rdy); 
+	@(posedge cache_rdy); 
 	if (was_miss) begin
 		$display("MISS PENALTY %d", $time - t0);
-	end*/
+	end
 	$display("");
 endtask
 
@@ -74,7 +74,7 @@ task read_cache(input logic [31:0] a);
 //	@(posedge clk);
 	#1;
 	$display("ADDR: %08x", addr);
-	/*if (dut.cache_hit) begin 
+	if (dut.cache_hit) begin 
 		$display("HIT!");
 		num_hits++;
 		was_miss = 0;
@@ -84,17 +84,19 @@ task read_cache(input logic [31:0] a);
 		was_miss = 1;
 	end
 	@(posedge clk); 
-	t0 = $time; */
+	t0 = $time;
 	@(negedge cache_rdy);
 	loadcntrl = 0;
 	ren = 0;
 	@(posedge cache_rdy);
 	$display("DOUT: %08x", dout); 
-	/*if (was_miss) begin
+	if (was_miss) begin
 		$display("MISS PENALTY %d", $time - t0);
-	end*/
+	end
 	$display("");
 endtask
+
+logic[31:0] read_addr;
 
 initial begin
 	num_hits = 0;
@@ -110,6 +112,7 @@ initial begin
 	wen = 0;
 	loadcntrl = 0;
 	storecntrl = 0; 
+	read_addr = 0; 
 	#10
 	rst = 0; 
 //	#10
@@ -129,6 +132,12 @@ initial begin
 	read_cache(32'h00001000);
 	read_cache(32'hc); 
 	read_cache(32'h00002000);
+	read_cache(32'h10);
+	read_cache(32'h14);
+//	while(read_addr < 64) begin
+//		read_cache(read_addr);
+//		read_addr += 4;
+//	end
 	
 	
 //	#10
