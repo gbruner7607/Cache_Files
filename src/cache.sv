@@ -8,7 +8,7 @@ module cache #(
 	parameter INDEX_BITS=4, 
 	parameter TAG_BITS=22,
 	parameter N_POW=4,
-	parameter SRAM_ADDR_WIDTH=10, 
+	parameter SRAM_ADDR_WIDTH=9, 
 	parameter SRAM_LATENCY=1
 	)(
 	//core to cache interface

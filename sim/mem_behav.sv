@@ -8,8 +8,8 @@ module mem_behav (
 
 logic [31:0] data [65536];
 
-//int fd = $fopen("/home/gbruner/ece551/Cache_Project/Cache_Files/mem_files/test.hex", "r");
-int fd = $fopen("C:/Users/grayb/Projects/Cache_Files/mem_files/test.hex", "r");
+int fd = $fopen("/home/gbruner/ece551/Cache_Project/Cache_Files/mem_files/test.hex", "r");
+//int fd = $fopen("C:/Users/grayb/Projects/Cache_Files/mem_files/test.hex", "r");
 int i;
 string a;
 
