@@ -39,7 +39,7 @@ output reg [31:0] dataOut; // internal registers
 
 reg [5:0]  Count = 0; 
 
-reg [31:0] FIFO [32]; 
+reg [31:0] FIFO [16]; 
 
 reg [5:0]  readCounter = 0, 
 
@@ -47,7 +47,7 @@ reg [5:0]  readCounter = 0,
 
 assign EMPTY = (Count==0)? 1'b1:1'b0; 
 
-assign FULL = (Count==32)? 1'b1:1'b0; 
+assign FULL = (Count==16)? 1'b1:1'b0; 
 
 //integer i;
 
@@ -90,11 +90,11 @@ begin
 
  end 
 
- if (writeCounter>32) 
+ if (writeCounter>16) 
 
   writeCounter=0; 
 
- else if (readCounter>32) 
+ else if (readCounter>16) 
 
   readCounter=0; 
 

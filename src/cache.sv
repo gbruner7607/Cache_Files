@@ -2,11 +2,11 @@ module cache #(
 	parameter DATA_WIDTH=32, 
 	parameter ADDR_WIDTH=32, 
 	parameter N_WAYS=2,
-	parameter BLOCK_SIZE=128,
-	parameter NUM_SETS=16, //4KB / 128 = 64 / 2 = 32,
-	parameter OFFSET_BITS=7, 
+	parameter BLOCK_SIZE=64,
+	parameter NUM_SETS=16, //2KB / 64 = 32 / 2 = 16,
+	parameter OFFSET_BITS=6, 
 	parameter INDEX_BITS=4, 
-	parameter TAG_BITS=21,
+	parameter TAG_BITS=22,
 	parameter N_POW=4,
 	parameter SRAM_ADDR_WIDTH=10, 
 	parameter SRAM_LATENCY=1
@@ -73,7 +73,7 @@ module cache #(
 	logic [31:0] sram_dout; 
 	
 	//Block buffer for exchanging blocks with higher level memory
-	logic [31:0] block_buf [32]; 
+	logic [31:0] block_buf [16]; 
 	logic [15:0] block_counter; 
 	logic [SRAM_ADDR_WIDTH-1:0] block_addr;
 	logic [OFFSET_BITS-1:0] block_offset;
@@ -164,7 +164,7 @@ module cache #(
 							cache_age[i][j] <= 0; 
 						end
 					end
-					for (int i = 0; i < 32; i++) begin
+					for (int i = 0; i < 16; i++) begin
 						block_buf[i] <= 0;
 					end
 					state <= idle;
@@ -182,12 +182,12 @@ module cache #(
 							//Need to writeback dirty block. Load it into the block buffer
 							if (cache_dirty[index_out][evict_way]) begin
                                 mem_addr <= {cache_tags[index_out][evict_way], index_out, 7'h00};
-                                mem_addr_tmp <= {tag_out, index_out, 7'h00};
-                                block_addr <= {evict_way[0], index_out, 5'b00000}; 
-                                cell_0_addr <= {evict_way[0], index_out, 5'b00000}; 
-                                cell_1_addr <= {evict_way[0], index_out, 5'b00000};
-                                cell_2_addr <= {evict_way[0], index_out, 5'b00000}; 
-                                cell_3_addr <= {evict_way[0], index_out, 5'b00000};
+                                mem_addr_tmp <= {tag_out, index_out, 6'h00};
+                                block_addr <= {evict_way[0], index_out, 4'b0000}; 
+                                cell_0_addr <= {evict_way[0], index_out, 4'b0000}; 
+                                cell_1_addr <= {evict_way[0], index_out, 4'b0000};
+                                cell_2_addr <= {evict_way[0], index_out, 4'b0000}; 
+                                cell_3_addr <= {evict_way[0], index_out, 4'b0000};
                                 cell_sense_en <= 4'b1111;
                                 sram_latency_counter <= 0;
                                 state <= sram_to_buffer; 
@@ -198,13 +198,13 @@ module cache #(
                             end 
 							//Block isn't dirty, we can replace it now
 							else begin
-								mem_addr <= {tag_out, index_out, 7'h00};
-								mem_addr_tmp <= {tag_out, index_out, 7'h00};
+								mem_addr <= {tag_out, index_out, 6'h00};
+								mem_addr_tmp <= {tag_out, index_out, 6'h00};
 								mem_ren <= 1; 
 								state <= mem_to_buffer;
 								block_counter <= 0;
-								block_addr <= {evict_way[0], index_out, 5'b00000};
-								block_offset <= offset_out[6:2]; 
+								block_addr <= {evict_way[0], index_out, 4'b0000};
+								block_offset <= offset_out[5:2]; 
 								sram_loadcntrl <= loadcntrl;
 								sram_storecntrl <= storecntrl;
 								sram_addr_lsb <= addr[1:0];
@@ -222,10 +222,10 @@ module cache #(
 							sram_addr_lsb <= addr[1:0]; 
 							case (addr[1:0])
 								2'b00: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_1_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_2_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[5:2]};
 									if (wen) begin
 										cell_0_din <= din[7:0];
 										cell_1_din <= din[15:8];
@@ -234,10 +234,10 @@ module cache #(
 									end
 								end
 								2'b01: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_2_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[5:2]};
 									if (wen) begin
 										cell_1_din <= din[7:0];
 										cell_2_din <= din[15:8];
@@ -246,10 +246,10 @@ module cache #(
 									end
 								end
 								2'b10: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]};
-									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out[5:2]};
+									cell_3_addr <= {hit_way[0], index_out, offset_out[5:2]};
 									if (wen) begin
 										cell_2_din <= din[7:0];
 										cell_3_din <= din[15:8];
@@ -258,10 +258,10 @@ module cache #(
 									end
 								end
 								2'b11: begin
-									cell_0_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_1_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_2_addr <= {hit_way[0], index_out, offset_out[6:2]} + 1;
-									cell_3_addr <= {hit_way[0], index_out, offset_out[6:2]};
+									cell_0_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_1_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_2_addr <= {hit_way[0], index_out, offset_out[5:2]} + 1;
+									cell_3_addr <= {hit_way[0], index_out, offset_out[5:2]};
 									if (wen) begin
 										cell_3_din <= din[7:0];
 										cell_0_din <= din[15:8];
@@ -321,7 +321,7 @@ module cache #(
 					end 
 				end
 				sram_to_buffer: begin  // added by Nishith
-				    if (FULL | block_counter >= 32) begin
+				    if (FULL | block_counter >= 16) begin
 				        block_counter <= 0;
 				        buff_wr_en <= 0;
 				        buff_rd_en <= 1;
@@ -356,7 +356,7 @@ module cache #(
 				       mem_din <= buff_dout;
 				       mem_wen <= 0; 
 //				       block_counter <= block_counter + 1;
-				    end else if ( block_counter >= 32) begin
+				    end else if ( block_counter >= 16) begin
 				        buff_rd_en <= 0;
 				        mem_wen <= 0; 
 				        mem_addr <= mem_addr_tmp;
@@ -378,7 +378,7 @@ module cache #(
 
 				end
 				mem_to_buffer: begin
-				    if (block_counter >= 31) begin
+				    if (block_counter >= 15) begin
 				    	block_buf[block_counter-1] <= mem_dout;
 				    	
 				        mem_ren <= 0; 
@@ -516,7 +516,7 @@ module cache #(
 				end
 				buffer_to_sram: begin
 						if (sram_latency_counter >= SRAM_LATENCY) begin
-							if (block_counter >= 31) begin
+							if (block_counter >= 15) begin
 								block_counter <= 0;
 								sram_latency_counter <= 0;
 								if (read_flag) begin

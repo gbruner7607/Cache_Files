@@ -6,11 +6,11 @@ module sram_behav #(
 	input logic clk, rst,
 	input logic[7:0] din,
 	input logic sense_en, wen,
-	input logic [9:0] addr, 
+	input logic [8:0] addr, 
 	output logic [7:0] dout
 );
 
-	logic [7:0] data [1024];
+	logic [7:0] data [512];
 	logic [7:0] sram_dout;
 	
 //	sequence s_dout;

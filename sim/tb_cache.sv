@@ -10,7 +10,7 @@ logic [2:0] storecntrl;
 
 logic [7:0] cell_0_dout, cell_1_dout, cell_2_dout, cell_3_dout;
 logic [7:0] cell_0_din, cell_1_din, cell_2_din, cell_3_din;
-logic [9:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
+logic [8:0] cell_0_addr, cell_1_addr, cell_2_addr, cell_3_addr;
 logic cell_0_sense_en, cell_1_sense_en, cell_2_sense_en, cell_3_sense_en;
 logic cell_0_wen, cell_1_wen, cell_2_wen, cell_3_wen;
 
